@@ -137,6 +137,7 @@ else ifeq ($(platform), sf2000)
    CFLAGS += -DSF2000
    CXXFLAGS = $(CFLAGS)
    STATIC_LINKING = 1
+   HAVE_COMPAT = 1
 
 #MIYOO
 else ifeq ($(platform), miyoo)

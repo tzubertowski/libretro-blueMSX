@@ -1159,6 +1159,46 @@ void retro_run(void)
          eventMap[EC_JOY2_BUTTON2] = joypad_bits[1] & (1 << RETRO_DEVICE_ID_JOYPAD_B)      ? 1 : 0;
       }
    }
+#if defined(SF2000)
+   if (joypad_bits[0] & (1 << RETRO_DEVICE_ID_JOYPAD_L))
+   {
+      unsigned mediatotal = 0;
+	  mediatotal = get_num_images() - 1;
+      if (mediatotal > 1)
+      {
+          unsigned mediaindex = 0;
+          mediaindex = get_image_index();
+          if (set_eject_state(true))
+          {
+              mediaindex--;
+              mediaindex = (mediaindex < 0) ? 0 : mediaindex;
+              if (set_image_index(mediaindex))
+              {
+                  set_eject_state(false);
+              }
+          }
+      }
+   }
+   else if (joypad_bits[0] & (1 << RETRO_DEVICE_ID_JOYPAD_R))
+   {
+      unsigned mediatotal = 0;
+	  mediatotal = get_num_images() - 1;
+      if (mediatotal > 1)
+      {
+          unsigned mediaindex = 0;
+          mediaindex = get_image_index();
+          if (set_eject_state(true))
+          {
+              mediaindex++;
+              mediaindex = (mediaindex == mediatotal) ? 0 : mediaindex;
+              if (set_image_index(mediaindex))
+              {
+                  set_eject_state(false);
+              }
+          }
+      }
+   }
+#endif
 
    ((R800*)boardInfo.cpuRef)->terminate = 0;
    boardInfo.run(boardInfo.cpuRef);   

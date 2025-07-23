@@ -192,6 +192,16 @@ SOURCES_C  += $(CORE_DIR)/Src/Z80/R800SaveState.c
 
 SOURCES_C  += $(CORE_DIR)/Src/Z80/R800Debug.c
 
+# SF2000-specific optimizations
+ifeq ($(platform), sf2000)
+SOURCES_C  += $(CORE_DIR)/Src/Z80/R800_SF2000_simple.c
+SOURCES_C  += $(CORE_DIR)/Src/VideoChips/VDP_SF2000.c
+SOURCES_C  += $(CORE_DIR)/Src/SoundChips/AudioMixer_SF2000.c
+SOURCES_C  += $(CORE_DIR)/Src/Memory/Memory_SF2000.c
+SOURCES_C  += $(CORE_DIR)/Src/Arch/MIPS_SF2000.c
+SOURCES_C  += $(CORE_DIR)/Src/Utils/SF2000_Integration.c
+endif
+
 SOURCES_C  += $(CORE_DIR)/Src/IoDevice/Casette.c
 SOURCES_C  += $(CORE_DIR)/Src/IoDevice/DirAsDisk.c
 SOURCES_C  += $(CORE_DIR)/Src/IoDevice/Disk.c

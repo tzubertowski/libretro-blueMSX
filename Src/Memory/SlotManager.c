@@ -33,6 +33,10 @@
 #include <string.h>
 #include <stdio.h>
 
+#ifdef SF2000
+#include "Memory_SF2000.h"
+#endif
+
 typedef struct {
     UInt8* pageData;
     int    readEnable;
@@ -269,6 +273,11 @@ void slotManagerCreate()
     int slot;
     int sslot;
     int page;
+
+#ifdef SF2000
+    // Initialize SF2000 memory optimizations
+    sf2000_memory_init();
+#endif
 
     memset(emptyRAM, 0xff, 0x2000);
     memset(ramslot, 0, sizeof(ramslot));

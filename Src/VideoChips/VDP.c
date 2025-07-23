@@ -36,6 +36,11 @@
 #include "FrameBuffer.h"
 #include "ArchVideoIn.h"
 #include "Language.h"
+
+// SF2000 VDP optimizations temporarily disabled for graphics fix
+//#ifdef SF2000
+//#include "VDP_SF2000.h"
+//#endif
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -2243,6 +2248,12 @@ void vdpCreate(VdpConnector connector, VdpVersion version, VdpSyncMode sync, int
     vdp->cmdEngine = vdpCmdCreate(vramSize, vdp->vram, boardSystemTime());
 
     reset(vdp);
+
+// Temporarily disable SF2000 VDP optimizations to fix exception 4
+//#ifdef SF2000
+//    // Initialize SF2000-specific VDP optimizations
+//    sf2000_vdp_init(vdp);
+//#endif
 
     switch (vdp->vdpVersion) {
     case VDP_TMS9929A:

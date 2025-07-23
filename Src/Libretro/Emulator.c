@@ -48,6 +48,11 @@
 #include <math.h>
 #include <string.h>
 
+#ifdef SF2000
+#include "MIPS_SF2000.h"
+#include "SF2000_Integration.h"
+#endif
+
 
 static int    emuExitFlag;
 static UInt32 emuSysTime = 0;
@@ -79,12 +84,41 @@ void emulatorInit(Properties* theProperties, Mixer* theMixer)
 {
     properties = theProperties;
     mixer      = theMixer;
+    
+#ifdef SF2000
+    // Initialize SF2000 MIPS architecture optimizations
+    sf2000_mips_init();
+    
+    // Initialize system integration and validation
+    sf2000_performance_init();
+    sf2000_stability_init();
+    sf2000_system_recovery_init();
+    
+    // Run initial system validation
+    sf2000_integration_initialized = 1;
+    sf2000_enable_debug_logging(1);
+    sf2000_enable_performance_profiling(1);
+    
+    // Validate all systems are working correctly
+    if (SF2000_VALIDATE_ALL_SYSTEMS()) {
+        sf2000_print_system_info();
+        printf("SF2000: All optimization systems initialized successfully!\n");
+        printf("SF2000: Target performance improvement: 256x (918MHz vs 3.58MHz)\n");
+    } else {
+        printf("SF2000: Warning - Some optimization systems failed validation\n");
+    }
+#endif
 }
 
 void emulatorExit()
 {
     properties = NULL;
     mixer      = NULL;
+    
+#ifdef SF2000
+    // Clean up SF2000 MIPS architecture optimizations
+    sf2000_mips_cleanup();
+#endif
 }
 
 

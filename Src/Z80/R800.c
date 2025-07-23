@@ -34,6 +34,10 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#ifdef SF2000
+#include "R800_SF2000.h"
+#endif
+
 typedef void (*Opcode)(R800*);
 typedef void (*OpcodeNn)(R800*, UInt16);
 
@@ -6142,6 +6146,13 @@ void r800Execute(R800* r800) {
 }
 
 void r800ExecuteUntil(R800* r800, UInt32 endTime) {
+// Temporarily disable SF2000 optimizations to ensure basic functionality works
+#ifdef SF2000_DISABLED_FOR_NOW
+    // Use SF2000-optimized execution path
+    sf2000_r800ExecuteUntil(r800, endTime);
+    return;
+#endif
+
     static SystemTime lastRefreshTime = 0;
 
     while ((Int32)(endTime - r800->systemTime) > 0) {
@@ -6236,6 +6247,13 @@ void r800ExecuteUntil(R800* r800, UInt32 endTime) {
 }
 
 void r800ExecuteInstruction(R800* r800) {
+// Temporarily disable SF2000 optimizations to ensure basic functionality works
+#ifdef SF2000_DISABLED_FOR_NOW
+    // Use SF2000-optimized instruction execution
+    sf2000_executeInstruction(r800);
+    return;
+#endif
+
     static SystemTime lastRefreshTime = 0;
     UInt16 address;
     int iff1 = 0;

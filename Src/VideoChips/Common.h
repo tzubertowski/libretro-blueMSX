@@ -913,7 +913,11 @@ static void RefreshLine1(VDP* vdp, int Y, int X, int X2)
 }
 
 
+#ifdef SF2000
+void RefreshLine2(VDP* vdp, int Y, int X, int X2)
+#else
 static void RefreshLine2(VDP* vdp, int Y, int X, int X2)
+#endif
 {
     static UInt8*  sprLine;
     static UInt8*  charTable;
@@ -1143,7 +1147,11 @@ static void RefreshLine3(VDP* vdp, int Y, int X, int X2)
 
 #if 1
 
+#ifdef SF2000
+void RefreshLine4(VDP* vdp, int Y, int X, int X2)
+#else
 static void RefreshLine4(VDP* vdp, int Y, int X, int X2)
+#endif
 {
     static UInt8*  sprLine;
     static UInt8*  charTable;
@@ -1458,7 +1466,11 @@ static void RefreshLine4(VDP* vdp, int Y, int X, int X2)
 
 #endif
 
+#ifdef SF2000
+void RefreshLine5(VDP* vdp, int Y, int X, int X2)
+#else
 static void RefreshLine5(VDP* vdp, int Y, int X, int X2)
+#endif
 {
     static UInt8*  charTable;
     static UInt8*  sprLine;

@@ -31,6 +31,10 @@
 #include <string.h>
 #include <stdio.h>
 
+#ifdef SF2000
+#include "Memory_SF2000.h"
+#endif
+
 // PacketFileSystem.h Need to be included after all other includes
 #include "PacketFileSystem.h"
 

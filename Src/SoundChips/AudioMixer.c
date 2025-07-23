@@ -33,6 +33,10 @@
 #include <stdio.h>
 #include <math.h>
 
+#ifdef SF2000
+#include "AudioMixer_SF2000.h"
+#endif
+
 #define BITSPERSAMPLE     16
 
 #define str2ul(s) ((UInt32)s[0]<<0|(UInt32)s[1]<<8|(UInt32)s[2]<<16|(UInt32)s[3]<<24)
@@ -320,6 +324,12 @@ Mixer* mixerCreate(void)
     mixer->fragmentSize = 512;
     mixer->enable       = 1;
     mixer->rate         = AUDIO_SAMPLERATE;
+
+// Temporarily disable SF2000 audio optimizations to fix exception 4
+//#ifdef SF2000
+//    // Initialize SF2000 audio optimizations
+//    sf2000_audio_init();
+//#endif
 
     if (globalMixer == NULL) globalMixer = mixer;
 

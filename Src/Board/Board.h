@@ -204,6 +204,10 @@ void boardSetY8950Enable(int value);
 int  boardGetY8950Enable();
 void boardSetMoonsoundEnable(int value);
 int  boardGetMoonsoundEnable();
+void boardSetSccEnable(int value);
+int  boardGetSccEnable();
+void boardSetYamahaSfgEnable(int value);
+int  boardGetYamahaSfgEnable();
 void boardSetVideoAutodetect(int value);
 int  boardGetVideoAutodetect();
 

@@ -96,6 +96,39 @@ struct retro_core_option_definition option_defs_us[] = {
       "enabled"
    },
    {
+      "bluemsx_scc_enable",
+      "SCC Sound Enable (Restart)",
+      "Enable/disable SCC (Konami Sound Custom Chip). Disabling improves performance on slower devices.",
+      {
+         { "enabled",   NULL },
+         { "disabled",   NULL },
+         { NULL, NULL },
+      },
+      "enabled"
+   },
+   {
+      "bluemsx_moonsound_enable", 
+      "Moonsound Enable (Restart)",
+      "Enable/disable Moonsound (OPL4). Disabling improves performance on slower devices.",
+      {
+         { "enabled",   NULL },
+         { "disabled",   NULL },
+         { NULL, NULL },
+      },
+      "enabled"
+   },
+   {
+      "bluemsx_yamaha_sfg_enable",
+      "Yamaha SFG Enable (Restart)", 
+      "Enable/disable Yamaha SFG sound. Disabling improves performance on slower devices.",
+      {
+         { "enabled",   NULL },
+         { "disabled",   NULL },
+         { NULL, NULL },
+      },
+      "enabled"
+   },
+   {
       "bluemsx_cartmapper",
       "Cart Mapper Type (Restart)",
       "When a ROM game or application is in the database, the emulator uses the databases to apply the correct mapper. If the sha1 value of a dump is not yet in the databases, it uses an automatic mapper detection system, but it can fail in some cases. In this situation, you can manually select the correct mapper.",

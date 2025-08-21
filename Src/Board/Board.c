@@ -1436,6 +1436,8 @@ static int oversamplingMoonsound = 1;
 static int enableYM2413          = 1;
 static int enableY8950           = 1;
 static int enableMoonsound       = 1;
+static int enableSCC             = 1;
+static int enableYamahaSFG       = 1;
 static int videoAutodetect       = 1;
 
 const char* boardGetBaseDirectory() {
@@ -1492,6 +1494,22 @@ void boardSetMoonsoundEnable(int value) {
 
 int boardGetMoonsoundEnable() {
     return enableMoonsound;
+}
+
+void boardSetSccEnable(int value) {
+    enableSCC = value;
+}
+
+int boardGetSccEnable() {
+    return enableSCC;
+}
+
+void boardSetYamahaSfgEnable(int value) {
+    enableYamahaSFG = value;
+}
+
+int boardGetYamahaSfgEnable() {
+    return enableYamahaSFG;
 }
 
 void boardSetVideoAutodetect(int value) {

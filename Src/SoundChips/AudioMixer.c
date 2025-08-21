@@ -378,6 +378,13 @@ Int32 mixerRegisterChannel(Mixer* mixer, Int32 audioType, Int32 stereo, MixerUpd
         return 0;
     }
 
+    // Check if expensive audio channels should be disabled based on core options
+    if ((audioType == MIXER_CHANNEL_SCC && !boardGetSccEnable()) ||
+        (audioType == MIXER_CHANNEL_MOONSOUND && !boardGetMoonsoundEnable()) ||
+        (audioType == MIXER_CHANNEL_YAMAHA_SFG && !boardGetYamahaSfgEnable())) {
+        return mixer->handleCount + 1; // Return fake handle, don't register channel
+    }
+
     mixer->channelCount++;
 
     channel->updateCallback = callback;

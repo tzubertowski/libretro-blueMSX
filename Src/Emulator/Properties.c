@@ -258,6 +258,8 @@ void propInitDefaults(Properties* properties, int langType, PropKeyboardLanguage
     properties->sound.chip.enableYM2413 = 1;
     properties->sound.chip.enableY8950 = 1;
     properties->sound.chip.enableMoonsound = 1;
+    properties->sound.chip.enableSCC = 1;
+    properties->sound.chip.enableYamahaSFG = 1;
     properties->sound.chip.moonsoundSRAMSize = 640;
     
     properties->sound.chip.ym2413Oversampling = 1;

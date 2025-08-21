@@ -254,6 +254,8 @@ typedef struct {
     int enableY8950;
     int enableYM2413;
     int enableMoonsound;
+    int enableSCC;
+    int enableYamahaSFG;
     int moonsoundSRAMSize;
     int ym2413Oversampling;
     int y8950Oversampling;

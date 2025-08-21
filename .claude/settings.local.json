@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls:*)",
+      "Bash(./buildcoresworking.sh:*)",
+      "Bash(make:*)",
+      "Bash(wait)",
+      "Bash(grep:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git config:*)",
+      "Bash(git stash:*)",
+      "Bash(git reset:*)"
+    ],
+    "deny": []
+  }
+}

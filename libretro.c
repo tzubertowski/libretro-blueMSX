@@ -63,6 +63,9 @@ static bool mapper_auto;
 bool is_coleco, is_sega, is_spectra, is_auto, auto_rewind_cas;
 static unsigned msx_vdp_synctype;
 static bool msx_ym2413_enable;
+static bool msx_scc_enable;
+static bool msx_moonsound_enable;
+static bool msx_yamaha_sfg_enable;
 static bool use_overscan = true;
 int msx2_dif = 0;
 
@@ -794,6 +797,45 @@ static void check_variables(void)
    else
       msx_ym2413_enable = true;
 
+   var.key = "bluemsx_scc_enable";
+   var.value = NULL;
+
+   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
+   {
+      if (!strcmp(var.value, "disabled"))
+         msx_scc_enable = false;
+      else if (!strcmp(var.value, "enabled"))
+         msx_scc_enable = true;
+   }
+   else
+      msx_scc_enable = true;
+
+   var.key = "bluemsx_moonsound_enable";
+   var.value = NULL;
+
+   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
+   {
+      if (!strcmp(var.value, "disabled"))
+         msx_moonsound_enable = false;
+      else if (!strcmp(var.value, "enabled"))
+         msx_moonsound_enable = true;
+   }
+   else
+      msx_moonsound_enable = true;
+
+   var.key = "bluemsx_yamaha_sfg_enable";
+   var.value = NULL;
+
+   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
+   {
+      if (!strcmp(var.value, "disabled"))
+         msx_yamaha_sfg_enable = false;
+      else if (!strcmp(var.value, "enabled"))
+         msx_yamaha_sfg_enable = true;
+   }
+   else
+      msx_yamaha_sfg_enable = true;
+
    var.key = "bluemsx_cartmapper";
    var.value = NULL;
 
@@ -915,6 +957,9 @@ bool retro_load_game(const struct retro_game_info *info)
    strcpy(properties->emulation.machineName, msx_type);
 
    properties->sound.chip.enableYM2413 = msx_ym2413_enable;
+   properties->sound.chip.enableSCC = msx_scc_enable;
+   properties->sound.chip.enableMoonsound = msx_moonsound_enable;
+   properties->sound.chip.enableYamahaSFG = msx_yamaha_sfg_enable;
 
    mixer = mixerCreate();
 
@@ -1024,6 +1069,8 @@ bool retro_load_game(const struct retro_game_info *info)
    boardSetY8950Enable(properties->sound.chip.enableY8950);
    boardSetYm2413Enable(properties->sound.chip.enableYM2413);
    boardSetMoonsoundEnable(properties->sound.chip.enableMoonsound);
+   boardSetSccEnable(properties->sound.chip.enableSCC);
+   boardSetYamahaSfgEnable(properties->sound.chip.enableYamahaSFG);
    boardSetVideoAutodetect(properties->video.detectActiveMonitor);
 
    emulatorStart(NULL);

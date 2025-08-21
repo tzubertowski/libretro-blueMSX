@@ -1266,6 +1266,26 @@ void retro_run(void)
           }
       }
    }
+   else if (joypad_bits[0] & (1 << RETRO_DEVICE_ID_JOYPAD_X))
+   {
+      // Mapped 1 to button X
+      eventMap[EC_1]     = joypad_bits[0] & (1 << RETRO_DEVICE_ID_JOYPAD_X)      ? 1 : 0;
+   }
+   else if (joypad_bits[0] & (1 << RETRO_DEVICE_ID_JOYPAD_Y))
+   {
+      // Mapped 2 to button Y
+      eventMap[EC_2]     = joypad_bits[0] & (1 << RETRO_DEVICE_ID_JOYPAD_Y)      ? 1 : 0;
+   }
+   else if (joypad_bits[0] & (1 << RETRO_DEVICE_ID_JOYPAD_SELECT))
+   {
+      // Mapped SPACE to button SELECT
+      eventMap[EC_SPACE]     = joypad_bits[0] & (1 << RETRO_DEVICE_ID_JOYPAD_SELECT) ? 1 : 0;
+   }
+   else if (joypad_bits[0] & (1 << RETRO_DEVICE_ID_JOYPAD_START))
+   {
+      // Mapped RETURN to button START
+      eventMap[EC_RETURN]     = joypad_bits[0] & (1 << RETRO_DEVICE_ID_JOYPAD_START)  ? 1 : 0;
+   }
 #endif
 
    ((R800*)boardInfo.cpuRef)->terminate = 0;

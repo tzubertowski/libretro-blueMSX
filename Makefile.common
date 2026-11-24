@@ -36,6 +36,7 @@ SOURCES_C   := $(CORE_DIR)/libretro.c \
 	       $(CORE_DIR)/Src/Libretro/Dialog.c \
 	       $(CORE_DIR)/Src/Libretro/Event.c \
 	       $(CORE_DIR)/Src/Libretro/File.c \
+	       $(CORE_DIR)/Src/Libretro/VirtualKeyboard.c \
 	       $(CORE_DIR)/Src/Libretro/Glob.c \
 	       $(CORE_DIR)/Src/Libretro/Input.c \
 	       $(CORE_DIR)/Src/Libretro/Menu.c \

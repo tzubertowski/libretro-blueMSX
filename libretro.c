@@ -6,6 +6,8 @@
 #include <string.h>
 #include <stdint.h>
 #include <ctype.h>
+#include <dirent.h>
+#include <limits.h>
 
 #include <retro_miscellaneous.h>
 
@@ -35,6 +37,7 @@
 #include "ziphelper.c"
 
 #include "libretro_core_options.h"
+#include "VirtualKeyboard.h"
 
 retro_log_printf_t log_cb;
 static retro_video_refresh_t video_cb;
@@ -67,6 +70,7 @@ static bool msx_scc_enable;
 static bool msx_moonsound_enable;
 static bool msx_yamaha_sfg_enable;
 static bool use_overscan = true;
+static bool msx_vkbd_enable = true;
 int msx2_dif = 0;
 
 
@@ -268,8 +272,24 @@ bool replace_image_index(unsigned index,
 {
    if(get_media_type(info->path) != MEDIA_TYPE_DISK)
        return false; /* can't swap a cart or tape into a disk slot */
-    
+
    strcpy(disk_paths[index], info->path);
+
+   /* GB350/picoarch: the libmmenu "Change Disc" flow (picoarch main.c)
+    * calls replace_image_index(0, ...) ALONE - it never runs the eject/
+    * set_image_index cycle RetroArch does, and it always targets slot 0
+    * even when the drive is parked on another tray slot after a swap.
+    * Point the drive at the replaced slot and insert the new image right
+    * away, so the swap always takes effect immediately. RetroArch's flow
+    * is unaffected: replace followed by set_image_index on the same slot
+    * ends in the same state (one extra idempotent insert during the
+    * eject phase). */
+   disk_index = index;
+   emulatorSuspend();
+   insertDiskette(properties, 0 /*drive*/, disk_paths[index] /*fname*/, NULL /*inZipFile*/, -1 /*forceAutostart, -1 is force no autostart*/);
+   emulatorResume();
+   disk_inserted = true;
+
    return true;
 }
 
@@ -287,6 +307,241 @@ void attach_disk_swap_interface(void)
    environ_cb(RETRO_ENVIRONMENT_SET_DISK_CONTROL_INTERFACE, &dskcb);
 }
 /* end .dsk swap support */
+
+/* GB350: minimal frontends hand the core a single file and have no disc
+ * picker of their own (picoarch's Disc control page only appears when the
+ * tray holds more than one image), so multi-disk games were stuck on
+ * disk 1. Take every sibling .dsk in the same folder whose name shares
+ * the launched disk's beginning and carries its own disk number/letter
+ * tail ("Game (JP - Disk 1).dsk" + "Game (JP - Disk 2).dsk", but also
+ * differently worded or mistyped tails like "Game (NL - Dsik 1).dsk" /
+ * "Game (NL - Dsik 2).dsk", count-style tails "Game (Disk 1/2).dsk" /
+ * "Game (Disk 2/2).dsk" and "Game (Disk 1 of 2).dsk"), and load them
+ * into the tray, so picoarch's Disc control menu and the SELECT+L /
+ * SELECT+R swap hotkey in retro_run can reach them. Tray order: the
+ * launched disk stays at index 0 and IS counted as the first image
+ * (v1 counted only the siblings, so an N-disk game reported N-1 images
+ * - a 2-disk game showed 1 disk and picoarch hid its disc page), and
+ * the siblings follow sorted by their tail number/letter. */
+
+static unsigned disk_swap_prev_bits = 0;
+
+/* Split a .dsk file name into the series name (everything before the
+ * trailing disk tail) and the tail's index. Recognized tails, most
+ * specific first:
+ *   "N/M" or "N of M"     ("... - Disk 1/2", "... Disk 1 of 2") -> id = N
+ *     the digit run AFTER the slash/"of" is the total, not the disk
+ *     number - taking it made "Disk 1/2" and "Disk 2/2" sort into
+ *     different families so the pair never grouped
+ *   trailing digit run    ("... - disk 12", "...disk2")         -> id = N
+ *   single trailing letter ("... disc a")                       -> id = 1..26
+ * Returns false when the name has no tail (plain "gamename.dsk" -
+ * nothing to group, and "1942.dsk"/"1943.dsk" don't group because their
+ * numbers are the name itself). Lowercases and strips the extension:
+ * "Game (NL - Dsik 2).DSK" -> family "game (nl - dsik", id 2. */
+static bool parse_disk_name(const char* fname, char* family, size_t flen, int* id)
+{
+   char stem[256];
+   char* q;
+   const char* p;
+   const char* run;
+   size_t len;
+   size_t n;
+
+   snprintf(stem, sizeof(stem), "%s", fname);
+
+   q = strrchr(stem, '.');
+   if (q)
+      *q = '\0';
+
+   for (q = stem; *q; q++)
+      *q = tolower((unsigned char)*q);
+
+   n = strlen(stem);
+   if (n > 0 && stem[n - 1] == ')')
+      stem[--n] = '\0'; /* "... disc a)" -> "... disc a" */
+
+   /* start of the trailing digit run (== end of stem when the name does
+    * not end in digits) */
+   p = stem + n;
+   while (p > stem && isdigit((unsigned char)p[-1]))
+      p--;
+
+   if (p < stem + n)
+   {
+      const char* sep;
+
+      /* "N/M" or "N of M": skip the separator junk between the total and
+       * the first number, then take the digit run before it as the disk
+       * id. Junk may be "/" with optional spaces on both sides or
+       * "(of"-style words ("... 1 (of 2", "... 1of2"). */
+      sep = p;
+      while (sep > stem && !isalnum((unsigned char)sep[-1]))
+         sep--;
+      if (sep > stem && sep[-1] == 'f' && sep - 1 > stem && sep[-2] == 'o')
+      {
+         sep -= 2; /* step over "of" */
+         while (sep > stem && !isalnum((unsigned char)sep[-1]))
+            sep--; /* junk between N and "of" */
+      }
+      else
+      {
+         /* "/" anywhere in the junk region: the digits of N end at sep */
+         const char* s2;
+         for (s2 = sep; s2 < p && *s2 != '/'; s2++)
+            ;
+         if (s2 == p)
+            sep = NULL;
+      }
+
+      if (sep)
+      {
+         run = sep;
+         while (run > stem && isdigit((unsigned char)run[-1]))
+            run--;
+         if (run < sep) /* a digit run before the separator: that is N */
+         {
+            *id = atoi(run);
+            len = (size_t)(run - stem);
+            while (len > 0 && !isalnum((unsigned char)stem[len - 1]))
+               len--;
+            if (len == 0 || len >= flen)
+               return false;
+            memcpy(family, stem, len);
+            family[len] = '\0';
+            return true;
+         }
+      }
+
+      /* plain trailing digit run ("... - dsik 12"): a run at the very
+       * start would leave an empty family */
+      run = p;
+      if (run > stem)
+      {
+         *id = atoi(run);
+         len = (size_t)(run - stem);
+         while (len > 0 && !isalnum((unsigned char)stem[len - 1]))
+            len--;
+         if (len == 0 || len >= flen)
+            return false;
+         memcpy(family, stem, len);
+         family[len] = '\0';
+         return true;
+      }
+   }
+
+   /* no digit tail: single trailing letter ("... disc a") */
+   if (n >= 2 && isalpha((unsigned char)stem[n - 1])
+         && !isalnum((unsigned char)stem[n - 2]))
+   {
+      *id = stem[n - 1] - 'a' + 1;
+      len = n - 1;
+      while (len > 0 && !isalnum((unsigned char)stem[len - 1]))
+         len--;
+      if (len == 0 || len >= flen)
+         return false;
+      memcpy(family, stem, len);
+      family[len] = '\0';
+      return true;
+   }
+
+   return false;
+}
+
+static void scan_sibling_disks(const char* path)
+{
+   DIR* dir;
+   struct dirent* de;
+   char family[256];
+   char fam2[256];
+   char names[10][256];
+   char low[256];
+   char name_low[256];
+   char kn[256];
+   char dirbuf[PATH_MAX];
+   const char* name;
+   int id;
+   int id2;
+   int ids[10];
+   int i;
+   int j;
+   int key;
+   unsigned n = 0;
+   unsigned added = 0;
+
+   snprintf(dirbuf, sizeof(dirbuf), "%s", path);
+   name = strrchr(dirbuf, SLASH);
+   if (!name)
+      return;
+   name++;
+   *strrchr(dirbuf, SLASH) = '\0'; /* the directory part */
+
+   /* parse the basename: "disk" inside a folder name must not matter */
+   if (!parse_disk_name(name, family, sizeof(family), &id))
+      return;
+
+   snprintf(name_low, sizeof(name_low), "%s", name);
+   for (i = 0; name_low[i]; i++)
+      name_low[i] = tolower((unsigned char)name_low[i]);
+
+   dir = opendir(dirbuf);
+   if (!dir)
+      return;
+
+   while ((de = readdir(dir)) != NULL && n < sizeof(names) / sizeof(names[0]))
+   {
+      size_t len;
+
+      if (de->d_name[0] == '.')
+         continue;
+
+      snprintf(low, sizeof(low), "%s", de->d_name);
+      for (i = 0; low[i]; i++)
+         low[i] = tolower((unsigned char)low[i]);
+
+      len = strlen(low);
+      if (len < 4 || strcmp(low + len - 4, ".dsk") != 0)
+         continue;
+      if (strcmp(low, name_low) == 0)
+         continue; /* the disk that is already in the tray */
+
+      if (!parse_disk_name(de->d_name, fam2, sizeof(fam2), &id2)
+            || strcmp(fam2, family) != 0)
+         continue;
+
+      snprintf(names[n], sizeof(names[n]), "%s", de->d_name);
+      ids[n] = id2;
+      n++;
+   }
+   closedir(dir);
+
+   /* insertion sort by disk number so SELECT+R walks them in order */
+   for (i = 1; i < (int)n; i++)
+   {
+      key = ids[i];
+      snprintf(kn, sizeof(kn), "%s", names[i]);
+      j = i - 1;
+      while (j >= 0 && ids[j] > key)
+      {
+         ids[j + 1] = ids[j];
+         snprintf(names[j + 1], sizeof(names[j + 1]), "%s", names[j]);
+         j--;
+      }
+      ids[j + 1] = key;
+      snprintf(names[j + 1], sizeof(names[j + 1]), "%s", kn);
+   }
+
+   for (i = 0; i < (int)n && disk_images < sizeof(disk_paths) / sizeof(disk_paths[0]); i++)
+   {
+      snprintf(disk_paths[disk_images], PATH_MAX, "%s%c%s", dirbuf, SLASH, names[i]);
+      disk_images++;
+      added++;
+   }
+
+   if (added > 0 && log_cb)
+      log_cb(RETRO_LOG_INFO, "[blueMSX] disk tray: %u images (launched disk + %u sibling(s) matching \"%s\")\n",
+         disk_images, added, family);
+}
 
 static bool read_m3u(const char *file)
 {
@@ -863,6 +1118,19 @@ static void check_variables(void)
    else
       auto_rewind_cas = true;
 
+   var.key = "bluemsx_vkbd";
+   var.value = NULL;
+
+   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
+   {
+      if (!strcmp(var.value, "OFF"))
+         msx_vkbd_enable = false;
+      else
+         msx_vkbd_enable = true;
+   }
+   else
+      msx_vkbd_enable = true;
+
    if (geometry_update)
    {
       retro_get_system_av_info(&av_info);
@@ -1004,7 +1272,13 @@ bool retro_load_game(const struct retro_game_info *info)
       case MEDIA_TYPE_DISK:
          strcpy(disk_paths[0] , info->path);
          strcpy(properties->media.disks[0].fileName , info->path);
+         /* the launched disk occupies tray slot 0 - count it, otherwise
+          * the tray reports N-1 images for an N-disk game (a 2-disk game
+          * showed 1 image and picoarch hid its Disc control page, which
+          * is why multi-disk games were never seen) */
+         disk_images = 1;
          disk_inserted = true;
+         scan_sibling_disks(info->path);
          attach_disk_swap_interface();
          break;
       case MEDIA_TYPE_DISK_BUNDLE:
@@ -1031,14 +1305,19 @@ bool retro_load_game(const struct retro_game_info *info)
          break;
    }
 
+   vkbd_init();
+
    for (i = 0; i < PROP_MAX_CARTS; i++)
    {
-      /*    Breaks database detection
-            if (properties->media.carts[i].fileName[0] && mapper_auto)
-            insertCartridge(properties, i, properties->media.carts[i].fileName, properties->media.carts[i].fileNameInZip, properties->media.carts[i].type, -1);
-       */
-      if (properties->media.carts[i].fileName[0] && !mapper_auto)
-         insertCartridge(properties, i, properties->media.carts[i].fileName, properties->media.carts[i].fileNameInZip, mediaDbStringToType(msx_cartmapper), -1);
+      /* GB350 fix: with "Mapper = Auto" the cartridge was NEVER inserted
+       * (insertCartridge is the only path that reaches the board — the
+       * board never reads properties->media.carts), so .rom games booted
+       * straight to BASIC. Insert with ROM_UNKNOWN: insertCartridge then
+       * resolves the mapper itself via mediaDbGuessRom (SHA1 database +
+       * size heuristics), falling back to the default rom type. */
+      if (properties->media.carts[i].fileName[0])
+         insertCartridge(properties, i, properties->media.carts[i].fileName, properties->media.carts[i].fileNameInZip,
+            mapper_auto ? ROM_UNKNOWN : mediaDbStringToType(msx_cartmapper), -1);
 
       updateExtendedRomName(i, properties->media.carts[i].fileName, properties->media.carts[i].fileNameInZip);
    }
@@ -1172,6 +1451,13 @@ void retro_run(void)
    else
    {
       /* MSX Input Part */
+      /* GB350: while the virtual keyboard overlay is open the gamepad drives
+         the panel; hand vkbd_input the untouched bits and silence the
+         emulated joystick so gamepad input can't leak into the game. */
+      unsigned vk_bits = joypad_bits[0];
+      if (msx_vkbd_enable && vkbd_is_open())
+         joypad_bits[0] = 0;
+
       for (i = 0; i < MAX_PADS; i++)
       {
          switch (input_devices[i])
@@ -1226,51 +1512,64 @@ void retro_run(void)
          eventMap[EC_JOY2_BUTTON1] = joypad_bits[1] & (1 << RETRO_DEVICE_ID_JOYPAD_A)      ? 1 : 0;
          eventMap[EC_JOY2_BUTTON2] = joypad_bits[1] & (1 << RETRO_DEVICE_ID_JOYPAD_B)      ? 1 : 0;
       }
+
+      if (msx_vkbd_enable)
+         vkbd_input(vk_bits, eventMap);
    }
-#if defined(SF2000)
-   if (joypad_bits[0] & (1 << RETRO_DEVICE_ID_JOYPAD_L))
+   /* Disk swap hotkey: SELECT+L = previous image, SELECT+R = next image.
+    * Edge-triggered (press = one swap, no re-fire while held), enabled
+    * whenever the tray holds more than one image (multi-disk game via
+    * .m3u or sibling .dsk files), and inactive while the virtual keyboard
+    * overlay is open (there SELECT is the space bar). Replaces the old
+    * SF2000-only block, which re-fired every frame while held, wrapped an
+    * unsigned index below 0 and skipped 2-image trays entirely. */
+   if (disk_images > 1 && !vkbd_is_open())
    {
-      unsigned mediatotal = 0;
-	  mediatotal = get_num_images() - 1;
-      if (mediatotal > 1)
+      unsigned bits  = joypad_bits[0];
+      unsigned sel_l = (1 << RETRO_DEVICE_ID_JOYPAD_SELECT) | (1 << RETRO_DEVICE_ID_JOYPAD_L);
+      unsigned sel_r = (1 << RETRO_DEVICE_ID_JOYPAD_SELECT) | (1 << RETRO_DEVICE_ID_JOYPAD_R);
+      int swapped = 0;
+
+      if (disk_index >= disk_images)
+         disk_index = 0;
+
+      if ((bits & sel_l) == sel_l && (disk_swap_prev_bits & sel_l) != sel_l)
       {
-          unsigned mediaindex = 0;
-          mediaindex = get_image_index();
-          if (set_eject_state(true))
-          {
-              mediaindex--;
-              mediaindex = (mediaindex < 0) ? 0 : mediaindex;
-              if (set_image_index(mediaindex))
-              {
-                  set_eject_state(false);
-              }
-          }
+         set_image_index((disk_index + disk_images - 1) % disk_images);
+         swapped = 1;
+      }
+      else if ((bits & sel_r) == sel_r && (disk_swap_prev_bits & sel_r) != sel_r)
+      {
+         set_image_index((disk_index + 1) % disk_images);
+         swapped = 1;
+      }
+
+      disk_swap_prev_bits = bits;
+
+      if (swapped && environ_cb)
+      {
+         struct retro_message msg;
+         char buf[48];
+         snprintf(buf, sizeof(buf), "Disk %u/%u", disk_index + 1, disk_images);
+         msg.msg    = buf;
+         msg.frames = 120;
+         environ_cb(RETRO_ENVIRONMENT_SET_MESSAGE, &msg);
       }
    }
-   else if (joypad_bits[0] & (1 << RETRO_DEVICE_ID_JOYPAD_R))
-   {
-      unsigned mediatotal = 0;
-	  mediatotal = get_num_images() - 1;
-      if (mediatotal > 1)
-      {
-          unsigned mediaindex = 0;
-          mediaindex = get_image_index();
-          if (set_eject_state(true))
-          {
-              mediaindex++;
-              mediaindex = (mediaindex == mediatotal) ? 0 : mediaindex;
-              if (set_image_index(mediaindex))
-              {
-                  set_eject_state(false);
-              }
-          }
-      }
-   }
-#endif
+   else
+      disk_swap_prev_bits = 0;
 
    ((R800*)boardInfo.cpuRef)->terminate = 0;
-   boardInfo.run(boardInfo.cpuRef);   
+   boardInfo.run(boardInfo.cpuRef);
    RETRO_PERFORMANCE_STOP(core_retro_run);
+
+   if (msx_vkbd_enable && vkbd_is_open())
+   {
+      /* bottom-align the panel to what the frontend actually displays */
+      int vbot = use_overscan ? (int)image_buffer_height - 2
+                              : 12 - (msx2_dif / 2) + 192 + msx2_dif * 2 - 1;
+      vkbd_draw(image_buffer, (int)image_buffer_current_width, (int)image_buffer_height, vbot);
+   }
 
    if (!use_overscan)
       video_cb(image_buffer + 8 + (image_buffer_current_width * sizeof(uint16_t) * (12 - (msx2_dif / 2))),

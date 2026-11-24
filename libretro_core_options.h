@@ -86,8 +86,8 @@ struct retro_core_option_definition option_defs_us[] = {
    },
    {
       "bluemsx_ym2413_enable",
-      "Sound YM2413 Enable (Restart)",
-      "Awaiting description.",
+      "YM2413 (Restart)",
+      "Enable YM2413 FM sound chip. Applies after a restart.",
       {
          { "enabled",   NULL },
          { "disabled",   NULL },
@@ -97,7 +97,7 @@ struct retro_core_option_definition option_defs_us[] = {
    },
    {
       "bluemsx_scc_enable",
-      "SCC Sound Enable (Restart)",
+      "SCC (Restart)",
       "Enable/disable SCC (Konami Sound Custom Chip). Disabling improves performance on slower devices.",
       {
          { "enabled",   NULL },
@@ -107,8 +107,8 @@ struct retro_core_option_definition option_defs_us[] = {
       "enabled"
    },
    {
-      "bluemsx_moonsound_enable", 
-      "Moonsound Enable (Restart)",
+      "bluemsx_moonsound_enable",
+      "Moonsound (Restart)",
       "Enable/disable Moonsound (OPL4). Disabling improves performance on slower devices.",
       {
          { "enabled",   NULL },
@@ -119,7 +119,7 @@ struct retro_core_option_definition option_defs_us[] = {
    },
    {
       "bluemsx_yamaha_sfg_enable",
-      "Yamaha SFG Enable (Restart)", 
+      "Yamaha SFG (Restart)",
       "Enable/disable Yamaha SFG sound. Disabling improves performance on slower devices.",
       {
          { "enabled",   NULL },
@@ -130,7 +130,7 @@ struct retro_core_option_definition option_defs_us[] = {
    },
    {
       "bluemsx_cartmapper",
-      "Cart Mapper Type (Restart)",
+      "Mapper (Restart)",
       "When a ROM game or application is in the database, the emulator uses the databases to apply the correct mapper. If the sha1 value of a dump is not yet in the databases, it uses an automatic mapper detection system, but it can fail in some cases. In this situation, you can manually select the correct mapper.",
       {
          { "Auto",   NULL },
@@ -173,7 +173,18 @@ struct retro_core_option_definition option_defs_us[] = {
    {
       "bluemsx_auto_rewind_cas",
       "Auto Rewind Cassette",
-      "",
+      "Rewind the tape to the start before loading.",
+      {
+         { "ON",   NULL },
+         { "OFF",   NULL },
+         { NULL, NULL },
+      },
+      "ON"
+   },
+   {
+      "bluemsx_vkbd",
+      "Virtual Keyboard",
+      "Press L+R in-game for the on-screen MSX keyboard. D-pad moves, A types, B closes, X = Shift latch, Y = Graph latch, START = Return, SELECT = Space.",
       {
          { "ON",   NULL },
          { "OFF",   NULL },

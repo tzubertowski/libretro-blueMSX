@@ -270,8 +270,24 @@ bool replace_image_index(unsigned index,
 {
    if(get_media_type(info->path) != MEDIA_TYPE_DISK)
        return false; /* can't swap a cart or tape into a disk slot */
-    
+
    strcpy(disk_paths[index], info->path);
+
+   /* GB350/picoarch: the libmmenu "Change Disc" flow (picoarch main.c)
+    * calls replace_image_index(0, ...) ALONE - it never runs the eject/
+    * set_image_index cycle RetroArch does, and it always targets slot 0
+    * even when the drive is parked on another tray slot after a swap.
+    * Point the drive at the replaced slot and insert the new image right
+    * away, so the swap always takes effect immediately. RetroArch's flow
+    * is unaffected: replace followed by set_image_index on the same slot
+    * ends in the same state (one extra idempotent insert during the
+    * eject phase). */
+   disk_index = index;
+   emulatorSuspend();
+   insertDiskette(properties, 0 /*drive*/, disk_paths[index] /*fname*/, NULL /*inZipFile*/, -1 /*forceAutostart, -1 is force no autostart*/);
+   emulatorResume();
+   disk_inserted = true;
+
    return true;
 }
 

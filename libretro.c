@@ -1033,12 +1033,15 @@ bool retro_load_game(const struct retro_game_info *info)
 
    for (i = 0; i < PROP_MAX_CARTS; i++)
    {
-      /*    Breaks database detection
-            if (properties->media.carts[i].fileName[0] && mapper_auto)
-            insertCartridge(properties, i, properties->media.carts[i].fileName, properties->media.carts[i].fileNameInZip, properties->media.carts[i].type, -1);
-       */
-      if (properties->media.carts[i].fileName[0] && !mapper_auto)
-         insertCartridge(properties, i, properties->media.carts[i].fileName, properties->media.carts[i].fileNameInZip, mediaDbStringToType(msx_cartmapper), -1);
+      /* GB350 fix: with "Mapper = Auto" the cartridge was NEVER inserted
+       * (insertCartridge is the only path that reaches the board — the
+       * board never reads properties->media.carts), so .rom games booted
+       * straight to BASIC. Insert with ROM_UNKNOWN: insertCartridge then
+       * resolves the mapper itself via mediaDbGuessRom (SHA1 database +
+       * size heuristics), falling back to the default rom type. */
+      if (properties->media.carts[i].fileName[0])
+         insertCartridge(properties, i, properties->media.carts[i].fileName, properties->media.carts[i].fileNameInZip,
+            mapper_auto ? ROM_UNKNOWN : mediaDbStringToType(msx_cartmapper), -1);
 
       updateExtendedRomName(i, properties->media.carts[i].fileName, properties->media.carts[i].fileNameInZip);
    }

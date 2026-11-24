@@ -35,6 +35,7 @@
 #include "ziphelper.c"
 
 #include "libretro_core_options.h"
+#include "VirtualKeyboard.h"
 
 retro_log_printf_t log_cb;
 static retro_video_refresh_t video_cb;
@@ -67,6 +68,7 @@ static bool msx_scc_enable;
 static bool msx_moonsound_enable;
 static bool msx_yamaha_sfg_enable;
 static bool use_overscan = true;
+static bool msx_vkbd_enable = true;
 int msx2_dif = 0;
 
 
@@ -863,6 +865,19 @@ static void check_variables(void)
    else
       auto_rewind_cas = true;
 
+   var.key = "bluemsx_vkbd";
+   var.value = NULL;
+
+   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
+   {
+      if (!strcmp(var.value, "OFF"))
+         msx_vkbd_enable = false;
+      else
+         msx_vkbd_enable = true;
+   }
+   else
+      msx_vkbd_enable = true;
+
    if (geometry_update)
    {
       retro_get_system_av_info(&av_info);
@@ -1031,6 +1046,8 @@ bool retro_load_game(const struct retro_game_info *info)
          break;
    }
 
+   vkbd_init();
+
    for (i = 0; i < PROP_MAX_CARTS; i++)
    {
       /* GB350 fix: with "Mapper = Auto" the cartridge was NEVER inserted
@@ -1175,6 +1192,13 @@ void retro_run(void)
    else
    {
       /* MSX Input Part */
+      /* GB350: while the virtual keyboard overlay is open the gamepad drives
+         the panel; hand vkbd_input the untouched bits and silence the
+         emulated joystick so gamepad input can't leak into the game. */
+      unsigned vk_bits = joypad_bits[0];
+      if (msx_vkbd_enable && vkbd_is_open())
+         joypad_bits[0] = 0;
+
       for (i = 0; i < MAX_PADS; i++)
       {
          switch (input_devices[i])
@@ -1229,6 +1253,9 @@ void retro_run(void)
          eventMap[EC_JOY2_BUTTON1] = joypad_bits[1] & (1 << RETRO_DEVICE_ID_JOYPAD_A)      ? 1 : 0;
          eventMap[EC_JOY2_BUTTON2] = joypad_bits[1] & (1 << RETRO_DEVICE_ID_JOYPAD_B)      ? 1 : 0;
       }
+
+      if (msx_vkbd_enable)
+         vkbd_input(vk_bits, eventMap);
    }
 #if defined(SF2000)
    if (joypad_bits[0] & (1 << RETRO_DEVICE_ID_JOYPAD_L))
@@ -1272,8 +1299,16 @@ void retro_run(void)
 #endif
 
    ((R800*)boardInfo.cpuRef)->terminate = 0;
-   boardInfo.run(boardInfo.cpuRef);   
+   boardInfo.run(boardInfo.cpuRef);
    RETRO_PERFORMANCE_STOP(core_retro_run);
+
+   if (msx_vkbd_enable && vkbd_is_open())
+   {
+      /* bottom-align the panel to what the frontend actually displays */
+      int vbot = use_overscan ? (int)image_buffer_height - 2
+                              : 12 - (msx2_dif / 2) + 192 + msx2_dif * 2 - 1;
+      vkbd_draw(image_buffer, (int)image_buffer_current_width, (int)image_buffer_height, vbot);
+   }
 
    if (!use_overscan)
       video_cb(image_buffer + 8 + (image_buffer_current_width * sizeof(uint16_t) * (12 - (msx2_dif / 2))),

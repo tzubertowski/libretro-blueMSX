@@ -181,6 +181,17 @@ struct retro_core_option_definition option_defs_us[] = {
       },
       "ON"
    },
+   {
+      "bluemsx_vkbd",
+      "Virtual Keyboard",
+      "Press L+R in-game for the on-screen MSX keyboard. D-pad moves, A types, B closes, X = Shift latch, Y = Graph latch, START = Return, SELECT = Space.",
+      {
+         { "ON",   NULL },
+         { "OFF",   NULL },
+         { NULL, NULL },
+      },
+      "ON"
+   },
    { NULL, NULL, NULL, {{0}}, NULL },
 };
 
